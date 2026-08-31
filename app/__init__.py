@@ -33,8 +33,23 @@ def create_app():
     app.register_blueprint(almacen_bp)
     app.register_blueprint(admin_bp)
 
-    # Creación automática de tablas si no existen en la BD
+    # Creación automática de tablas y usuario webmaster por defecto
     with app.app_context():
         db.create_all()
+        try:
+            from app.models import Usuario
+            if not Usuario.query.filter_by(username='webmaster').first():
+                from werkzeug.security import generate_password_hash
+                admin_user = Usuario(
+                    username='webmaster',
+                    password=generate_password_hash('Munchy2026*'),
+                    nombre_completo='Administrador Webmaster',
+                    rol='admin',
+                    activo=True
+                )
+                db.session.add(admin_user)
+                db.session.commit()
+        except Exception as e:
+            print(f"Error creando usuario administrador inicial: {e}")
 
     return app
