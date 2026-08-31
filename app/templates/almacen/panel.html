@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-12">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-clipboard-list text-danger me-2"></i>Panel de Pedidos y Despacho
+        </h2>
+        <p class="text-muted mb-0">Control de horas de pedido y despacho con ajuste de entregas parciales y estado de conformidad.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card card-custom p-3 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th># Pedido</th>
+                            <th>Hora Pedido</th>
+                            <th>Hora Despacho</th>
+                            <th>Vendedor</th>
+                            <th>Almacén Móvil</th>
+                            <th>Estatus / Conformidad</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if pedidos %}
+                            {% for p in pedidos %}
+                            <tr>
+                                <td class="fw-bold text-danger">#{{ p.id }}</td>
+                                <td class="small"><i class="fa-solid fa-clock text-primary me-1"></i>{{ p.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                                <td class="small">
+                                    {% if p.fecha_despacho %}
+                                        <i class="fa-solid fa-circle-check text-success me-1"></i>{{ p.fecha_despacho.strftime('%d/%m/%Y %I:%M %p') }}
+                                    {% else %}
+                                        <span class="text-muted">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ p.vendedor.nombre_completo if p.vendedor else 'N/A' }}</strong></td>
+                                <td>
+                                    {% if p.vendedor and p.vendedor.vehiculo %}
+                                        <span class="badge bg-secondary font-monospace">{{ p.vendedor.vehiculo.codigo_vehiculo }}</span>
+                                    {% else %}
+                                        <span class="text-muted small">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if p.estatus == 'Pendiente' %}
+                                        <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i>Pendiente</span>
+                                    {% else %}
+                                        <span class="badge bg-success mb-1 d-block"><i class="fa-solid fa-check-circle me-1"></i>Entregado</span>
+                                        {% if p.recibido_conforme %}
+                                            <span class="badge bg-primary d-block" title="{{ p.fecha_recepcion.strftime('%d/%m/%Y %I:%M %p') if p.fecha_recepcion else '' }}">
+                                                <i class="fa-solid fa-check-double me-1"></i>Recibido Conforme
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-outline-secondary text-muted border border-secondary d-block">Por Confirmar Vendedor</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalPedido{{ p.id }}">
+                                            <i class="fa-solid fa-pen-to-square me-1"></i>Ver / Despachar
+                                        </button>
+
+                                        <form method="POST" action="{{ url_for('almacen.toggle_estatus', pedido_id=p.id) }}">
+                                            {% if p.estatus == 'Pendiente' %}
+                                                <button type="submit" class="btn btn-sm btn-success" title="Marcar como Entregado">
+                                                    <i class="fa-solid fa-check"></i> Entregar
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Desmarcar / Modificar Entrega">
+                                                    <i class="fa-solid fa-rotate-left"></i> Modificar
+                                                </button>
+                                            {% endif %}
+                                        </form>
+
+                                        {% if current_user.rol in ['admin', 'webmaster'] or p.usuario_id == current_user.id %}
+                                        <form id="form-eliminar-panel-{{ p.id }}" method="POST" action="{{ url_for('vendedor.eliminar_pedido', pedido_id=p.id) }}">
+                                            <button type="button" class="btn btn-sm btn-danger" title="Eliminar Pedido Definitivamente" onclick="confirmarEliminacionPedidoPanel('{{ p.id }}')">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="modal fade text-start" id="modalPedido{{ p.id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-dark text-white">
+                                                    <h5 class="modal-title fw-bold">
+                                                        <i class="fa-solid fa-boxes-packing text-danger me-2"></i>Despacho de Pedido #{{ p.id }}
+                                                    </h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                
+                                                <form method="POST" action="{{ url_for('almacen.actualizar_despacho', pedido_id=p.id) }}">
+                                                    <div class="modal-body p-4">
+                                                        <div class="row mb-3 bg-light p-3 rounded">
+                                                            <div class="col-12 col-md-6 mb-2">
+                                                                <strong>Vendedor:</strong> {{ p.vendedor.nombre_completo if p.vendedor else 'N/A' }}
+                                                            </div>
+                                                            <div class="col-12 col-md-6 mb-2">
+                                                                <strong>Almacén Móvil:</strong> 
+                                                                {% if p.vendedor and p.vendedor.vehiculo %}
+                                                                    {{ p.vendedor.vehiculo.codigo_vehiculo }}
+                                                                {% else %}
+                                                                    N/A
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="col-12 col-md-6 mb-1">
+                                                                <strong>Hora del Pedido:</strong> {{ p.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}
+                                                            </div>
+                                                            <div class="col-12 col-md-6 mb-1">
+                                                                <strong>Hora de Despacho:</strong> 
+                                                                {% if p.fecha_despacho %}
+                                                                    {{ p.fecha_despacho.strftime('%d/%m/%Y %I:%M %p') }}
+                                                                {% else %}
+                                                                    <span class="text-muted">Pendiente</span>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="table-responsive border rounded">
+                                                            <table class="table table-striped align-middle mb-0">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>Código</th>
+                                                                        <th>Descripción</th>
+                                                                        <th class="text-center">Cant. Solicitada</th>
+                                                                        <th class="text-center" style="width: 160px;">Cant. Despachada</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for d in p.detalles %}
+                                                                    <tr>
+                                                                        <td class="font-monospace fw-bold">{{ d.producto.codigo if d.producto else 'N/A' }}</td>
+                                                                        <td>{{ d.producto.descripcion if d.producto else 'Producto no disponible' }}</td>
+                                                                        <td class="text-center fw-bold">{{ d.cantidad }} {{ d.producto.unidad_medida if d.producto else '' }}</td>
+                                                                        <td>
+                                                                            {% if p.estatus == 'Pendiente' %}
+                                                                                <input type="number" 
+                                                                                       name="despachado_{{ d.id }}" 
+                                                                                       class="form-control form-control-sm text-center fw-bold border-danger" 
+                                                                                       value="{% if d.cantidad_despachada != None %}{{ d.cantidad_despachada }}{% else %}{{ d.cantidad }}{% endif %}" 
+                                                                                       min="0" 
+                                                                                       max="{{ d.cantidad }}">
+                                                                            {% else %}
+                                                                                <span class="badge bg-success fs-6">{% if d.cantidad_despachada != None %}{{ d.cantidad_despachada }}{% else %}{{ d.cantidad }}{% endif %} {{ d.producto.unidad_medida if d.producto else '' }}</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                    </tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        {% if p.estatus == 'Pendiente' %}
+                                                            <small class="text-muted mt-2 d-block">
+                                                                <i class="fa-solid fa-info-circle me-1"></i>
+                                                                Puedes ajustar la cantidad despachada en caso de stock incompleto antes de marcar como entregado.
+                                                            </small>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <div class="modal-footer d-flex justify-content-between">
+                                                        <a href="{{ url_for('almacen.exportar_pdf', pedido_id=p.id) }}" target="_blank" class="btn btn-outline-danger">
+                                                            <i class="fa-solid fa-file-pdf me-2"></i>Exportar PDF
+                                                        </a>
+                                                        <div>
+                                                            {% if p.estatus == 'Pendiente' %}
+                                                                <button type="submit" class="btn btn-primary me-2">
+                                                                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Cantidades
+                                                                </button>
+                                                            {% endif %}
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                        </div>
+                                                    </div>
+                                                </form>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">No hay pedidos registrados.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function confirmarEliminacionPedidoPanel(pedidoId) {
+        Swal.fire({
+            title: '¿Eliminar este pedido?',
+            text: `Vas a eliminar permanentemente el Pedido #${pedidoId}.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            customClass: { popup: 'rounded-4 shadow' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById(`form-eliminar-panel-${pedidoId}`).submit();
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-7">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-chart-line text-danger me-2"></i>Dashboard de Autoventa
+        </h2>
+        <p class="text-muted mb-0">Gestión de despacho general e indicadores individuales por vendedor.</p>
+    </div>
+    
+    <!-- Filtro de Vendedor -->
+    <div class="col-12 col-md-5 mt-3 mt-md-0">
+        <form method="GET" action="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center justify-content-md-end gap-2">
+            <label for="vendedor_id" class="fw-bold text-secondary mb-0 small text-nowrap"><i class="fa-solid fa-filter me-1"></i>Filtrar por Vendedor:</label>
+            <select name="vendedor_id" id="vendedor_id" class="form-select border-danger shadow-sm" onchange="this.form.submit()">
+                <option value="">-- Ver Todos (General) --</option>
+                {% for v in vendedores %}
+                    <option value="{{ v.id }}" {% if vendedor_id_filtro == v.id %}selected{% endif %}>{{ v.nombre_completo }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas KPI Principales -->
+<div class="row g-3 mb-4">
+    <!-- 1. Azul: Efectividad de Despacho (%) -->
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="card card-custom bg-primary text-white p-3 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-uppercase mb-1 small fw-bold">Efectividad Despacho</h6>
+                    <h2 class="fw-bold mb-0">{{ efectividad_despacho_pct }}%</h2>
+                </div>
+                <i class="fa-solid fa-percent fa-2x opacity-50"></i>
+            </div>
+            <small class="text-white-50 mt-2 d-block small">Despachadas / Solicitadas</small>
+        </div>
+    </div>
+
+    <!-- 2. Amarillo: Total Unidades Solicitadas -->
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="card card-custom bg-warning text-dark p-3 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-uppercase mb-1 small fw-bold">Unid. Solicitadas</h6>
+                    <h2 class="fw-bold mb-0">{{ total_unidades_solicitadas }}</h2>
+                </div>
+                <i class="fa-solid fa-boxes-stacked fa-2x opacity-50"></i>
+            </div>
+            <small class="text-dark-50 mt-2 d-block small">Volumen total de pedidos</small>
+        </div>
+    </div>
+
+    <!-- 3. Verde: Pedidos Despachados / Efectivos -->
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="card card-custom bg-success text-white p-3 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-uppercase mb-1 small fw-bold">Pedidos Despachados</h6>
+                    <h2 class="fw-bold mb-0">{{ pedidos_entregados_count }}</h2>
+                </div>
+                <i class="fa-solid fa-circle-check fa-2x opacity-50"></i>
+            </div>
+            <small class="text-white-50 mt-2 d-block small">Estatus Entregado en Almacén Móvil</small>
+        </div>
+    </div>
+
+    <!-- 4. Rojo: Producto Más Vendido (Top Item) -->
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="card card-custom bg-danger text-white p-3 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-uppercase mb-1 small fw-bold">Producto Estrella</h6>
+                    <h6 class="fw-bold mb-0 text-truncate" style="max-width: 170px;" title="{{ producto_top_nombre }}">{{ producto_top_nombre }}</h6>
+                </div>
+                <i class="fa-solid fa-star fa-2x opacity-50"></i>
+            </div>
+            <small class="text-white-50 mt-2 d-block small">Top Item de mayor rotación</small>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjetas de Gestión Comercial -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card card-custom border-0 shadow-sm p-3 bg-white h-100 border-start border-success border-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase text-muted small fw-bold">Tasa Cumplimiento</span>
+                <span class="badge bg-success-subtle text-success border border-success px-2 py-1 fs-6 fw-bold">{{ tasa_cumplimiento }}%</span>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">{{ pedidos_completos }} <span class="fs-6 fw-normal text-muted">/ {{ pedidos_completos + pedidos_incompletos }} Completos</span></h3>
+            <small class="text-muted d-block"><i class="fa-solid fa-circle-info text-success me-1"></i>{{ pedidos_incompletos }} pedidos con despacho parcial</small>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card card-custom border-0 shadow-sm p-3 bg-white h-100 border-start border-primary border-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase text-muted small fw-bold">Promedio por Pedido</span>
+                <i class="fa-solid fa-chart-simple text-primary fs-5"></i>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">{{ promedio_unidades_pedido }} <span class="fs-6 fw-normal text-muted">Unids / Pedido</span></h3>
+            <small class="text-muted d-block"><i class="fa-solid fa-dolly text-primary me-1"></i>Carga promedio montada por el vendedor</small>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card card-custom border-0 shadow-sm p-3 bg-white h-100 border-start border-warning border-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase text-muted small fw-bold">Tiempo Prom. Despacho</span>
+                <i class="fa-solid fa-stopwatch text-warning fs-5"></i>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">{{ tiempo_promedio_str }}</h3>
+            <small class="text-muted d-block"><i class="fa-solid fa-clock-rotate-left text-warning me-1"></i>Respuesta desde pedido hasta entrega</small>
+        </div>
+    </div>
+</div>
+
+<!-- Top 3 Vendedores General -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom p-4 shadow-sm border-start border-danger border-4">
+            <h4 class="fw-bold text-dark mb-3">
+                <i class="fa-solid fa-trophy text-warning me-2"></i>Top 3 Vendedores de Mayor Volumen
+            </h4>
+            <div class="row g-3">
+                {% if top_3_vendedores %}
+                    {% for top in top_3_vendedores %}
+                    <div class="col-12 col-md-4">
+                        <div class="card h-100 bg-light border-0 p-3 text-center">
+                            <div class="mb-2">
+                                <span class="badge rounded-circle bg-danger fs-5 px-3 py-2">#{{ loop.index }}</span>
+                            </div>
+                            <h5 class="fw-bold text-dark mb-1">{{ top.nombre }}</h5>
+                            <p class="text-danger fw-bold fs-5 mb-2">{{ top.volumen }} Unidades Solicitadas</p>
+                            <div class="border-top pt-2 mt-auto">
+                                <small class="text-muted d-block font-monospace">Artículo Estrella:</small>
+                                <strong class="text-dark small">{{ top.producto_estrella }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-12 text-center text-muted py-3">
+                        <p class="mb-0">Aún no se registran datos suficientes para generar el Top 3.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla Comparativa de Gestión por Vendedor -->
+<div class="row">
+    <div class="col-12">
+        <div class="card card-custom p-3 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="fa-solid fa-users me-2 text-danger"></i>Tabla Comparativa de Despacho y Gestión por Vendedor
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Vendedor</th>
+                            <th>Almacén Móvil</th>
+                            <th class="text-center">Ped. Realizados</th>
+                            <th class="text-center">Unid. Solicitadas</th>
+                            <th class="text-center">Unid. Despachadas</th>
+                            <th class="text-center">Efectividad %</th>
+                            <th>Producto Top</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if gestion_vendedores %}
+                            {% for g in gestion_vendedores %}
+                            <tr {% if vendedor_id_filtro == g.id %}class="table-warning"{% endif %}>
+                                <td><strong>{{ g.vendedor }}</strong></td>
+                                <td><span class="badge bg-secondary font-monospace">{{ g.vehiculo }}</span></td>
+                                <td class="text-center fw-bold">{{ g.total_pedidos }}</td>
+                                <td class="text-center fw-bold text-primary">{{ g.unidades_solicitadas }}</td>
+                                <td class="text-center fw-bold text-success">{{ g.unidades_despachadas }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if g.efectividad >= 80 %}bg-success{% elif g.efectividad >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                        {{ g.efectividad }}%
+                                    </span>
+                                </td>
+                                <td><span class="text-dark small fw-bold">{{ g.top_producto }}</span></td>
+                                <td class="text-center">
+                                    <a href="{{ url_for('admin.dashboard', vendedor_id=g.id) }}" class="btn btn-sm btn-outline-danger" title="Filtrar métricas de este vendedor">
+                                        <i class="fa-solid fa-eye"></i> Filtrar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">No hay vendedores registrados.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

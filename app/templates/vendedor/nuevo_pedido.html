@@ -1,0 +1,591 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-6">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-cart-plus text-danger me-2"></i>Catálogo / Nuevo Pedido
+        </h2>
+        <p class="text-muted mb-0">
+            {% if current_user.rol in ['admin', 'webmaster', 'analista'] %}
+                Modo Webmaster / Analista: Control total. Puedes gestionar categorías, editar imágenes, armar y eliminar pedidos.
+            {% else %}
+                Filtra productos escaneando o escribiendo su nombre/código.
+            {% endif %}
+        </p>
+    </div>
+    <div class="col-12 col-md-6 text-end mt-2 mt-md-0 d-flex justify-content-end gap-2">
+        <button class="btn btn-dark btn-lg shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalEscanerBarra">
+            <i class="fa-solid fa-barcode me-2 text-warning"></i>Escanear
+        </button>
+        <button class="btn btn-outline-dark btn-lg shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalMisPedidos">
+            <i class="fa-solid fa-clipboard-check me-2 text-primary"></i>Mis Pedidos
+        </button>
+        <button class="btn btn-danger btn-lg shadow-sm position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCarrito">
+            <i class="fa-solid fa-cart-shopping me-2"></i>Carrito
+            <span id="badge-total-items" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-dark">
+                0
+            </span>
+        </button>
+    </div>
+</div>
+
+<!-- BARRA DE BÚSQUEDA / FILTRO INTELIGENTE EN TIEMPO REAL -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="input-group input-group-lg shadow-sm">
+            <span class="input-group-text bg-dark text-white"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="input-filtro-busqueda" class="form-control" placeholder="Escribe el nombre o código de barras del producto para filtrar..." onkeyup="filtrarProductosInteligente()">
+            <button class="btn btn-outline-secondary" type="button" onclick="limpiarFiltro()"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+        </div>
+    </div>
+</div>
+
+{% if not categoria_seleccionada %}
+<!-- VISTA 1: SELECCIÓN DE CATEGORÍAS -->
+<div class="row g-4 mb-4" id="contenedor-categorias">
+    <div class="col-12">
+        <h5 class="fw-bold text-secondary mb-3"><i class="fa-solid fa-layer-group me-2"></i>Categorías Cargadas:</h5>
+    </div>
+    {% if categorias %}
+        {% for cat in categorias %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 card-categoria-item">
+            <div class="card card-custom h-100 shadow-sm border-0 bg-white text-center p-4 hover-card position-relative">
+                
+                {% if current_user.rol in ['admin', 'webmaster', 'analista'] %}
+                <form id="form-eliminar-cat-{{ cat.id }}" method="POST" action="{{ url_for('vendedor.eliminar_categoria', categoria_id=cat.id) }}" class="position-absolute top-0 end-0 m-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2" title="Eliminar Categoría" onclick="confirmarEliminacionCategoria('{{ cat.id }}', '{{ cat.nombre }}')">
+                        <i class="fa-solid fa-trash-can fa-lg"></i>
+                    </button>
+                </form>
+                {% endif %}
+
+                <a href="{{ url_for('vendedor.nuevo_pedido', categoria_id=cat.id) }}" class="text-decoration-none">
+                    <div class="text-danger mb-3">
+                        <i class="fa-solid fa-boxes-packing fa-3x"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">{{ cat.nombre }}</h5>
+                    <small class="text-muted">{{ cat.productos|length }} Productos</small>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12 text-center py-5 text-muted">
+            <i class="fa-solid fa-folder-open fa-3x mb-3"></i>
+            <h5>No hay categorías disponibles. Realiza una carga masiva en Excel para alimentar el catálogo.</h5>
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- LISTADO GENERAL / SELECCIONADO DE PRODUCTOS -->
+<div class="row g-3 mb-4" id="contenedor-productos">
+    {% if productos %}
+        {% for prod in productos %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 target-producto-card" data-codigo="{{ prod.codigo|lower }}" data-desc="{{ prod.descripcion|lower }}">
+            <div class="card card-custom h-100 shadow-sm border-0 position-relative">
+                
+                <div class="text-center p-3 bg-light rounded-top cursor-pointer" onclick="toggleSeleccionProducto({{ prod.id }})">
+                    {% if prod.imagen %}
+                        <img src="{{ url_for('static', filename='uploads/' + prod.imagen) }}" alt="{{ prod.descripcion }}" class="img-fluid rounded" style="max-height: 130px; object-fit: contain;">
+                    {% else %}
+                        <div class="py-4 text-secondary">
+                            <i class="fa-solid fa-box-open fa-3x mb-2"></i>
+                            <p class="small mb-0">Sin Imagen</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-body d-flex flex-column justify-content-between p-3">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-secondary font-monospace fs-6">{{ prod.codigo }}</span>
+                            <small class="text-muted font-monospace">{{ prod.unidad_medida }}</small>
+                        </div>
+                        <h6 class="card-title fw-bold text-dark mb-1">{{ prod.descripcion }}</h6>
+                        <small class="text-muted d-block mb-2">Stock Almacén: <strong>{{ prod.stock_almacen }}</strong></small>
+                    </div>
+
+                    <!-- Módulo de Selección de Cantidad y Carrito -->
+                    <div class="mt-2">
+                        <div class="input-group input-group-sm mb-2">
+                            <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', -1)">-</button>
+                            <input type="number" id="cant-{{ prod.id }}" class="form-control text-center fw-bold" value="1" min="1" max="{{ prod.stock_almacen }}">
+                            <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', 1)">+</button>
+                        </div>
+                        <button class="btn btn-danger btn-sm w-100 shadow-sm" onclick="agregarAlCarrito({{ prod.id }}, '{{ prod.codigo }}', '{{ prod.descripcion|replace('\'', '') }}', {{ prod.stock_almacen }})">
+                            <i class="fa-solid fa-cart-plus me-1"></i> Agregar al Carrito
+                        </button>
+                    </div>
+
+                    {% if current_user.rol in ['admin', 'webmaster', 'analista'] %}
+                    <div class="mt-2 border-top pt-2 text-center">
+                        <button class="btn btn-outline-primary btn-sm w-100" type="button" data-bs-toggle="modal" data-bs-target="#modalImagen{{ prod.id }}">
+                            <i class="fa-solid fa-camera me-1"></i> {% if prod.imagen %}Cambiar Imagen{% else %}Subir Imagen{% endif %}
+                        </button>
+                    </div>
+
+                    <div class="modal fade" id="modalImagen{{ prod.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header bg-dark text-white">
+                                    <h5 class="modal-title">
+                                        <i class="fa-solid fa-image text-danger me-2"></i>Imagen: {{ prod.codigo }}
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="POST" action="{{ url_for('vendedor.editar_imagen', producto_id=prod.id) }}" enctype="multipart/form-data">
+                                    <div class="modal-body">
+                                        <p class="small text-muted mb-2"><strong>Producto:</strong> {{ prod.descripcion }}</p>
+                                        <div class="mb-3">
+                                            <label for="imagen_archivo_{{ prod.id }}" class="form-label font-weight-bold">Selecciona una imagen (PNG, JPG, WEBP)</label>
+                                            <input class="form-control" type="file" id="imagen_archivo_{{ prod.id }}" name="imagen_archivo" accept="image/*" required>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-upload me-1"></i>Guardar Imagen</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+<!-- MODAL CÁMARA ESCÁNER CÓDIGO DE BARRAS -->
+<div class="modal fade" id="modalEscanerBarra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-barcode text-warning me-2"></i>Escáner de Código de Barras</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="detenerEscaner()"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <div id="reader" style="width: 100%; min-height: 250px;"></div>
+                <small class="text-muted mt-2 d-block">Apunta con la cámara al código de barras del producto para filtrarlo al instante.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="detenerEscaner()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL MIS PEDIDOS -->
+<div class="modal fade" id="modalMisPedidos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-check text-primary me-2"></i>Mis Pedidos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Pedido</th>
+                                <th>Fecha</th>
+                                <th>Estatus Despacho</th>
+                                <th>Conformidad</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if mis_pedidos %}
+                                {% for mp in mis_pedidos %}
+                                <tr>
+                                    <td class="fw-bold text-danger">#{{ mp.id }}</td>
+                                    <td class="small">{{ mp.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                                    <td>
+                                        {% if mp.estatus == 'Pendiente' %}
+                                            <span class="badge bg-warning text-dark">Pendiente por Almacén</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Despachado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if mp.recibido_conforme %}
+                                            <span class="badge bg-primary"><i class="fa-solid fa-circle-check me-1"></i>Recibido Conforme</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Sin Confirmar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-inline-flex gap-1 align-items-center">
+                                            <!-- Botón Ver Detalle de Productos -->
+                                            <button type="button" class="btn btn-sm btn-outline-info shadow-sm" data-bs-toggle="modal" data-bs-target="#modalDetallePedido{{ mp.id }}" title="Ver artículos del pedido">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+
+                                            {% if mp.estatus == 'Entregado' and not mp.recibido_conforme %}
+                                                <form method="POST" action="{{ url_for('vendedor.confirmar_recepcion', pedido_id=mp.id) }}">
+                                                    <button type="submit" class="btn btn-sm btn-primary shadow-sm" title="Confirmar recepción">
+                                                        <i class="fa-solid fa-check-double me-1"></i>Recibir Conforme
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+
+                                            <!-- BOTÓN ELIMINAR SOLO PARA WEBMASTER, ANALISTA O ALMACENISTA -->
+                                            {% if current_user.rol in ['webmaster', 'admin', 'analista', 'almacenista'] %}
+                                            <form id="form-eliminar-pedido-{{ mp.id }}" method="POST" action="{{ url_for('vendedor.eliminar_pedido', pedido_id=mp.id) }}">
+                                                <button type="button" class="btn btn-sm btn-outline-danger shadow-sm" title="Eliminar Pedido" onclick="confirmarEliminacionPedido('{{ mp.id }}')">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" class="text-center text-muted py-3">No has realizado pedidos aún.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SUB-MODALES PARA VER EL DETALLE DE LOS PRODUCTOS DE CADA PEDIDO -->
+{% if mis_pedidos %}
+    {% for mp in mis_pedidos %}
+    <div class="modal fade" id="modalDetallePedido{{ mp.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fa-solid fa-box-open text-danger me-2"></i>Detalle de Productos - Pedido #{{ mp.id }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3 bg-light p-3 rounded">
+                        <div class="col-6 mb-1"><strong>Fecha Creación:</strong> {{ mp.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</div>
+                        <div class="col-6 mb-1"><strong>Fecha Despacho:</strong> {{ mp.fecha_despacho.strftime('%d/%m/%Y %I:%M %p') if mp.fecha_despacho else 'Pendiente' }}</div>
+                        <div class="col-6"><strong>Estatus Despacho:</strong> {{ mp.estatus }}</div>
+                        <div class="col-6"><strong>Conformidad Vendedor:</strong> {{ 'Recibido Conforme' if mp.recibido_conforme else 'Pendiente' }}</div>
+                    </div>
+
+                    <div class="table-responsive border rounded">
+                        <table class="table table-striped align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th class="text-center">Cant. Solicitada</th>
+                                    <th class="text-center">Cant. Despachada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in mp.detalles %}
+                                <tr>
+                                    <td class="font-monospace fw-bold">{{ d.producto.codigo if d.producto else 'N/A' }}</td>
+                                    <td>{{ d.producto.descripcion if d.producto else 'Producto no disponible' }}</td>
+                                    <td class="text-center fw-bold">{{ d.cantidad }} {{ d.producto.unidad_medida if d.producto else '' }}</td>
+                                    <td class="text-center">
+                                        {% if mp.estatus == 'Entregado' %}
+                                            <span class="badge bg-success fs-6">
+                                                {% if d.cantidad_despachada != None %}{{ d.cantidad_despachada }}{% else %}{{ d.cantidad }}{% endif %} {{ d.producto.unidad_medida if d.producto else '' }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted small">Por despachar</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <a href="{{ url_for('almacen.exportar_pdf', pedido_id=mp.id) }}" target="_blank" class="btn btn-outline-danger">
+                        <i class="fa-solid fa-file-pdf me-2"></i>Descargar Comprobante PDF
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalMisPedidos">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Volver a Mis Pedidos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Carrito de Compras Flotante (Offcanvas) -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasCarrito">
+    <div class="offcanvas-header bg-dark text-white">
+        <h5 class="offcanvas-title">
+            <i class="fa-solid fa-cart-shopping me-2 text-danger"></i>Carrito de Nuevo Pedido
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column justify-content-between">
+        <div>
+            <ul class="list-group list-group-flush mb-3" id="lista-carrito">
+                <li class="list-group-item text-center text-muted py-4">Tu carrito está vacío.</li>
+            </ul>
+        </div>
+        <div>
+            <form id="form-pedido" method="POST" action="{{ url_for('vendedor.crear_pedido') }}">
+                <input type="hidden" name="items_json" id="items_json">
+                <button type="submit" id="btn-enviar-pedido" class="btn btn-danger btn-lg w-100 shadow" disabled>
+                    <i class="fa-solid fa-paper-plane me-2"></i>Procesar Pedido al Almacén
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    let html5QrcodeScanner = null;
+    let carrito = JSON.parse(sessionStorage.getItem('munchy_carrito')) || [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        renderCarrito();
+        
+        const modalEscaner = document.getElementById('modalEscanerBarra');
+        if (modalEscaner) {
+            modalEscaner.addEventListener('shown.bs.modal', iniciarEscaner);
+            modalEscaner.addEventListener('hidden.bs.modal', detenerEscaner);
+        }
+    });
+
+    function iniciarEscaner() {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 150 } },
+            (decodedText) => {
+                detenerEscaner();
+                bootstrap.Modal.getInstance(document.getElementById('modalEscanerBarra')).hide();
+                
+                document.getElementById('input-filtro-busqueda').value = decodedText;
+                filtrarProductosInteligente();
+            },
+            (errorMessage) => {}
+        ).catch(err => console.error("Error al iniciar cámara:", err));
+    }
+
+    function detenerEscaner() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear()).catch(err => {});
+        }
+    }
+
+    function filtrarProductosInteligente() {
+        let filtro = document.getElementById('input-filtro-busqueda').value.toLowerCase().trim();
+        let cards = document.querySelectorAll('.target-producto-card');
+        let contenedorCat = document.getElementById('contenedor-categorias');
+
+        if (contenedorCat && filtro.length > 0) {
+            contenedorCat.style.display = 'none';
+        } else if (contenedorCat) {
+            contenedorCat.style.display = 'flex';
+        }
+
+        cards.forEach(card => {
+            let codigo = card.dataset.codigo;
+            let desc = card.dataset.desc;
+
+            if (codigo.includes(filtro) || desc.includes(filtro)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    function limpiarFiltro() {
+        document.getElementById('input-filtro-busqueda').value = '';
+        filtrarProductosInteligente();
+    }
+
+    function confirmarEliminacionCategoria(catId, catNombre) {
+        Swal.fire({
+            title: '¿Eliminar categoría?',
+            text: `Vas a eliminar "${catNombre}" y todos sus productos vinculados.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            customClass: { popup: 'rounded-4 shadow' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById(`form-eliminar-cat-${catId}`).submit();
+            }
+        });
+    }
+
+    function confirmarEliminacionPedido(pedidoId) {
+        Swal.fire({
+            title: '¿Eliminar este pedido?',
+            text: `Esta acción eliminará el Pedido #${pedidoId} de forma permanente.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            customClass: { popup: 'rounded-4 shadow' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById(`form-eliminar-pedido-${pedidoId}`).submit();
+            }
+        });
+    }
+
+    function ajustarCantidad(inputId, delta) {
+        let input = document.getElementById(inputId);
+        let val = parseInt(input.value) + delta;
+        if (val >= 1) {
+            input.value = val;
+        }
+    }
+
+    function toggleSeleccionProducto(id) {
+        let input = document.getElementById(`cant-${id}`);
+        if (input) input.focus();
+    }
+
+    function agregarAlCarrito(id, codigo, descripcion, stockAlmacen) {
+        if (stockAlmacen <= 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Stock No Disponible',
+                text: `El producto "${descripcion}" no tiene unidades disponibles en el almacén principal.`,
+                confirmButtonColor: '#d33',
+                customClass: { popup: 'rounded-4 shadow' }
+            });
+            return;
+        }
+
+        let cantidadInput = document.getElementById(`cant-${id}`);
+        let cantidad = parseInt(cantidadInput.value);
+
+        if (cantidad > stockAlmacen) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Excede Stock Disponible',
+                text: `Solo hay ${stockAlmacen} unidades disponibles de "${descripcion}".`,
+                confirmButtonColor: '#d33',
+                customClass: { popup: 'rounded-4 shadow' }
+            });
+            return;
+        }
+
+        let existe = carrito.find(item => item.id === id);
+        if (existe) {
+            if ((existe.cantidad + cantidad) > stockAlmacen) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Límite de Stock Alcanzado',
+                    text: `Ya tienes ${existe.cantidad} unidades en el carrito. No puedes superar el stock de ${stockAlmacen}.`,
+                    confirmButtonColor: '#d33',
+                    customClass: { popup: 'rounded-4 shadow' }
+                });
+                return;
+            }
+            existe.cantidad += cantidad;
+        } else {
+            carrito.push({ id: id, codigo: codigo, descripcion: descripcion, cantidad: cantidad });
+        }
+
+        sessionStorage.setItem('munchy_carrito', JSON.stringify(carrito));
+        renderCarrito();
+        
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Producto añadido al carrito',
+            showConfirmButton: false,
+            timer: 1200
+        });
+    }
+
+    function eliminarDelCarrito(id) {
+        carrito = carrito.filter(item => item.id !== id);
+        sessionStorage.setItem('munchy_carrito', JSON.stringify(carrito));
+        renderCarrito();
+    }
+
+    function renderCarrito() {
+        let lista = document.getElementById('lista-carrito');
+        let badge = document.getElementById('badge-total-items');
+        let btnEnviar = document.getElementById('btn-enviar-pedido');
+        let inputJson = document.getElementById('items_json');
+
+        if (!lista) return;
+
+        if (carrito.length === 0) {
+            lista.innerHTML = `<li class="list-group-item text-center text-muted py-4">Tu carrito está vacío.</li>`;
+            if (badge) badge.innerText = '0';
+            if (btnEnviar) btnEnviar.disabled = true;
+            if (inputJson) inputJson.value = '';
+            return;
+        }
+
+        lista.innerHTML = '';
+        let totalItems = 0;
+
+        carrito.forEach(item => {
+            totalItems += item.cantidad;
+            lista.innerHTML += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong class="d-block text-dark">${item.descripcion}</strong>
+                        <small class="text-muted">${item.codigo} - Cantidad: <span class="badge bg-danger">${item.cantidad}</span></small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarDelCarrito(${item.id})">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </li>
+            `;
+        });
+
+        if (badge) badge.innerText = totalItems;
+        if (btnEnviar) btnEnviar.disabled = false;
+        if (inputJson) inputJson.value = JSON.stringify(carrito);
+    }
+
+    if (document.getElementById('form-pedido')) {
+        document.getElementById('form-pedido').addEventListener('submit', function() {
+            sessionStorage.removeItem('munchy_carrito');
+        });
+    }
+</script>
+
+<style>
+    .hover-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1) !important;
+    }
+    .cursor-pointer {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}

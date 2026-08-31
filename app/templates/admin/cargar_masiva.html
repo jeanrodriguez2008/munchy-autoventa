@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-8">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-file-excel text-success me-2"></i>Carga Masiva de Productos
+        </h2>
+        <p class="text-muted mb-0">Actualización e importación del catálogo maestro de productos a través de archivos Excel.</p>
+    </div>
+    <div class="col-12 col-md-4 text-end mt-2 mt-md-0">
+        <a href="{{ url_for('admin.descargar_plantilla') }}" class="btn btn-outline-success">
+            <i class="fa-solid fa-download me-2"></i>Descargar Plantilla Excel
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8">
+        <div class="card card-custom p-4 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-cloud-arrow-up me-2 text-danger"></i>Subir Archivo de Inventario</h5>
+            
+            <form method="POST" action="{{ url_for('admin.cargar_masiva') }}" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label for="file_excel" class="form-label font-weight-bold">Selecciona el archivo Excel (.xlsx o .xls)</label>
+                    <input class="form-control form-control-lg" type="file" id="file_excel" name="file_excel" accept=".xlsx, .xls" required>
+                    <div class="form-text mt-2">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        Asegúrate de mantener las columnas exactamente como se indican en la plantilla descargable: 
+                        <strong>CODIGO, DESCRIPCION, CATEGORIA, UNIDAD_MEDIDA, STOCK</strong>.
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-danger btn-lg shadow-sm">
+                        <i class="fa-solid fa-spinner me-2"></i>Procesar e Importar Productos
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Instrucciones adicionales -->
+        <div class="card card-custom p-3 mt-4 bg-light border-0">
+            <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-list-check me-2 text-danger"></i>Instrucciones de Importación:</h6>
+            <ul class="small text-muted mb-0 ps-3">
+                <li>Si la <strong>CATEGORIA</strong> escrita en el Excel no existe, el sistema la creará automáticamente.</li>
+                <li>Si el <strong>CODIGO</strong> del producto ya existe en la base de datos, el sistema actualizará la descripción y el stock disponible.</li>
+                <li>Los campos de texto no deben contener caracteres extraños ni fórmulas.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

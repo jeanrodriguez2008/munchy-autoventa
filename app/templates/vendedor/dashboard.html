@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-3 align-items-center">
+    <div class="col-12 col-md-6">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-boxes-stacked text-danger me-2"></i>Catálogo de Autoventa
+        </h2>
+        <p class="text-muted mb-0">
+            Vehículo Móvil Asignado: 
+            <span class="badge bg-danger">{{ current_user.vehiculo.codigo_vehiculo if current_user.vehiculo else 'Sin Vehículo' }}</span>
+        </p>
+    </div>
+    <div class="col-12 col-md-6 text-end mt-2 mt-md-0">
+        <button class="btn btn-outline-danger w-100 w-md-auto position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCarrito">
+            <i class="fa-solid fa-cart-shopping me-2"></i>Ver Mi Pedido
+            <span id="badge-total-items" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                0
+            </span>
+        </button>
+    </div>
+</div>
+
+<!-- Filtro por Categoría -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom p-2">
+            <div class="d-flex overflow-auto py-1">
+                <button class="btn btn-sm btn-danger me-2 filter-btn active" onclick="filtrarCategoria('todas')">Todas</button>
+                {% for cat in categorias %}
+                    <button class="btn btn-sm btn-outline-secondary me-2 filter-btn" onclick="filtrarCategoria('cat-{{ cat.id }}')">{{ cat.nombre }}</button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Grid de Productos -->
+<div class="row g-3" id="contenedor-productos">
+    {% if productos %}
+        {% for prod in productos %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 producto-item cat-{{ prod.categoria_id }}">
+            <div class="card card-custom h-100 shadow-sm border-0">
+                <div class="text-center p-3 bg-light rounded-top">
+                    {% if prod.imagen %}
+                        <img src="{{ url_for('static', filename='uploads/' + prod.imagen) }}" alt="{{ prod.descripcion }}" class="img-fluid rounded" style="max-height: 140px; object-fit: contain;">
+                    {% else %}
+                        <div class="py-4 text-secondary">
+                            <i class="fa-solid fa-box-open fa-4x mb-2"></i>
+                            <p class="small mb-0">Sin Imagen</p>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-body d-flex flex-column justify-content-between p-3">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-secondary font-monospace">{{ prod.codigo }}</span>
+                            <small class="text-muted fw-bold">{{ prod.unidad_medida }}</small>
+                        </div>
+                        <h6 class="card-title fw-bold text-dark mb-2">{{ prod.descripcion }}</h6>
+                        <p class="card-text small text-muted mb-2">
+                            Stock Almacén: 
+                            <span class="badge {% if prod.stock_almacen > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ prod.stock_almacen }}
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <div class="input-group input-group-sm mb-2">
+                            <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', -1)">-</button>
+                            <input type="number" id="cant-{{ prod.id }}" class="form-control text-center" value="1" min="1" max="{{ prod.stock_almacen }}">
+                            <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', 1)">+</button>
+                        </div>
+                        <button class="btn btn-danger btn-sm w-100" onclick="agregarAlCarrito({{ prod.id }}, '{{ prod.codigo }}', '{{ prod.descripcion }}')">
+                            <i class="fa-solid fa-plus me-1"></i> Agregar al Pedido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12 text-center py-5 text-muted">
+            <i class="fa-solid fa-store-slash fa-3x mb-3"></i>
+            <h5>No hay productos disponibles en el catálogo.</h5>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Offcanvas (Panel Lateral Desplegable para el Carrito) -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasCarrito" aria-labelledby="offcanvasCarritoLabel">
+    <div class="offcanvas-header bg-dark text-white">
+        <h5 class="offcanvas-title" id="offcanvasCarritoLabel">
+            <i class="fa-solid fa-cart-flatbed me-2 text-danger"></i>Resumen del Pedido
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column justify-content-between">
+        <div>
+            <ul class="list-group list-group-flush mb-3" id="lista-carrito">
+                <li class="list-group-item text-center text-muted py-4">Tu pedido está vacío.</li>
+            </ul>
+        </div>
+        <div>
+            <form id="form-pedido" method="POST" action="{{ url_for('vendedor.crear_pedido') }}">
+                <input type="hidden" name="items_json" id="items_json">
+                <button type="submit" id="btn-enviar-pedido" class="btn btn-danger btn-lg w-100 shadow" disabled>
+                    <i class="fa-solid fa-paper-plane me-2"></i>Enviar Pedido al Almacén
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let carrito = [];
+
+    function filtrarCategoria(catClass) {
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('btn-danger', 'active'));
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.add('btn-outline-secondary'));
+        event.target.classList.remove('btn-outline-secondary');
+        event.target.classList.add('btn-danger', 'active');
+
+        let productos = document.querySelectorAll('.producto-item');
+        productos.forEach(prod => {
+            if (catClass === 'todas' || prod.classList.contains(catClass)) {
+                prod.style.display = 'block';
+            } else {
+                prod.style.display = 'none';
+            }
+        });
+    }
+
+    function ajustarCantidad(inputId, delta) {
+        let input = document.getElementById(inputId);
+        let val = parseInt(input.value) + delta;
+        if (val >= 1) {
+            input.value = val;
+        }
+    }
+
+    function agregarAlCarrito(id, codigo, descripcion) {
+        let cantidadInput = document.getElementById(`cant-${id}`);
+        let cantidad = parseInt(cantidadInput.value);
+
+        let existe = carrito.find(item => item.id === id);
+        if (existe) {
+            existe.cantidad += cantidad;
+        } else {
+            carrito.push({ id: id, codigo: codigo, descripcion: descripcion, cantidad: cantidad });
+        }
+
+        renderCarrito();
+    }
+
+    function eliminarDelCarrito(id) {
+        carrito = carrito.filter(item => item.id !== id);
+        renderCarrito();
+    }
+
+    function renderCarrito() {
+        let lista = document.getElementById('lista-carrito');
+        let badge = document.getElementById('badge-total-items');
+        let btnEnviar = document.getElementById('btn-enviar-pedido');
+        let inputJson = document.getElementById('items_json');
+
+        if (carrito.length === 0) {
+            lista.innerHTML = `<li class="list-group-item text-center text-muted py-4">Tu pedido está vacío.</li>`;
+            badge.innerText = '0';
+            btnEnviar.disabled = true;
+            inputJson.value = '';
+            return;
+        }
+
+        lista.innerHTML = '';
+        let totalItems = 0;
+
+        carrito.forEach(item => {
+            totalItems += item.cantidad;
+            lista.innerHTML += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong class="d-block text-dark">${item.descripcion}</strong>
+                        <small class="text-muted">${item.codigo} - Cantidad: <span class="badge bg-danger">${item.cantidad}</span></small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarDelCarrito(${item.id})">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </li>
+            `;
+        });
+
+        badge.innerText = totalItems;
+        btnEnviar.disabled = false;
+        inputJson.value = JSON.stringify(carrito);
+    }
+</script>
+{% endblock %}

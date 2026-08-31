@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-12 col-sm-10 col-md-8 col-lg-6">
+        <div class="card card-custom p-4 shadow">
+            <div class="text-center mb-4">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Alimentos Munchy" class="img-fluid mb-2" style="max-height: 60px;">
+                <h4 class="fw-bold text-dark">Registro de Usuario</h4>
+                <p class="text-muted small">Crea tu cuenta personal para acceder al sistema</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                <div class="row">
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="nombre_completo" class="form-label font-weight-bold">Nombre Completo</label>
+                        <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" placeholder="Ej: Jean Carlos" required>
+                    </div>
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="cedula" class="form-label font-weight-bold">Cédula de Identidad</label>
+                        <input type="text" class="form-control" id="cedula" name="cedula" placeholder="Ej: V-12345678" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="telefono" class="form-label font-weight-bold">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono" name="telefono" placeholder="Ej: 0414-1234567" required>
+                    </div>
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="rol" class="form-label font-weight-bold">Rol a Solicitar</label>
+                        <select class="form-select" id="rol" name="rol" required onchange="toggleVehiculoSelect(this.value)">
+                            <option value="vendedor" selected>Vendedor</option>
+                            <option value="almacenista">Almacenista</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="div-vehiculo">
+                    <label for="vehiculo_id" class="form-label font-weight-bold">Almacén Móvil (Solo para Vendedores)</label>
+                    <select class="form-select" id="vehiculo_id" name="vehiculo_id">
+                        <option value="">-- Seleccionar Vehículo --</option>
+                        {% for v in vehiculos %}
+                            <option value="{{ v.id }}">{{ v.codigo_vehiculo }} {% if v.descripcion %}({{ v.descripcion }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <hr class="my-3">
+
+                <div class="row">
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="username" class="form-label font-weight-bold">Nombre de Usuario (Login)</label>
+                        <input type="text" class="form-control" id="username" name="username" placeholder="Ej: jean.munchy" required>
+                    </div>
+                    <div class="col-12 col-sm-6 mb-3">
+                        <label for="password" class="form-label font-weight-bold">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
+                <div class="mb-3">
+                    <label for="pregunta_secreta" class="form-label font-weight-bold">Pregunta Secreta</label>
+                    <select class="form-select" id="pregunta_secreta" name="pregunta_secreta" required>
+                        <option value="">-- Selecciona una pregunta para recuperar clave --</option>
+                        <option value="¿Cuál es el nombre de tu primera mascota?">¿Cuál es el nombre de tu primera mascota?</option>
+                        <option value="¿En qué ciudad naciste?">¿En qué ciudad naciste?</option>
+                        <option value="¿Cuál es tu color favorito?">¿Cuál es tu color favorito?</option>
+                        <option value="¿Cuál es el nombre de tu escuela primaria?">¿Cuál es el nombre de tu escuela primaria?</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="respuesta_secreta" class="form-label font-weight-bold">Respuesta Secreta</label>
+                    <input type="text" class="form-control" id="respuesta_secreta" name="respuesta_secreta" placeholder="Ingresa tu respuesta" required>
+                </div>
+
+                <div class="d-grid mb-3">
+                    <button type="submit" class="btn btn-danger btn-lg shadow-sm">
+                        <i class="fa-solid fa-user-check me-2"></i>Completar Registro
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center">
+                <a href="{{ url_for('auth.login') }}" class="text-decoration-none small text-secondary">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Volver al Inicio de Sesión
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleVehiculoSelect(rol) {
+        let divVehiculo = document.getElementById('div-vehiculo');
+        if (rol === 'vendedor') {
+            divVehiculo.style.display = 'block';
+        } else {
+            divVehiculo.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}
