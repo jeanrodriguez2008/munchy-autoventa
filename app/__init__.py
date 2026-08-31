@@ -33,4 +33,8 @@ def create_app():
     app.register_blueprint(almacen_bp)
     app.register_blueprint(admin_bp)
 
+    # Creación automática de tablas si no existen en la BD
+    with app.app_context():
+        db.create_all()
+
     return app
