@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from app.models import Usuario, VehiculoMovil, Producto, Categoria, Pedido, DetallePedido
 from app import db
 
@@ -165,6 +166,67 @@ def dashboard():
         top_3_vendedores=top_3_vendedores,
         gestion_vendedores=gestion_vendedores
     )
+
+@admin_bp.route('/admin/producto/guardar', methods=['POST'])
+@login_required
+def guardar_producto():
+    if current_user.rol not in ['admin', 'webmaster', 'analista']:
+        flash('Acceso no autorizado.', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+    producto_id = request.form.get('producto_id', type=int)
+    codigo = request.form.get('codigo', '').strip()
+    descripcion = request.form.get('descripcion', '').strip()
+    categoria_id = request.form.get('categoria_id', type=int)
+    unidad_medida = request.form.get('unidad_medida', '').strip()
+
+    if not codigo or not descripcion or not categoria_id:
+        flash('Por favor completa los campos requeridos (Código, Descripción y Categoría).', 'warning')
+        return redirect(request.referrer or url_for('vendedor.nuevo_pedido'))
+
+    try:
+        if producto_id:
+            producto = Producto.query.get_or_404(producto_id)
+            producto.codigo = codigo
+            producto.descripcion = descripcion
+            producto.categoria_id = categoria_id
+            producto.unidad_medida = unidad_medida
+            flash(f'¡Producto "{codigo}" actualizado con éxito!', 'success')
+        else:
+            existente = Producto.query.filter_by(codigo=codigo).first()
+            if existente:
+                flash(f'El código "{codigo}" ya está registrado en el catálogo.', 'warning')
+                return redirect(request.referrer or url_for('vendedor.nuevo_pedido'))
+
+            producto = Producto(
+                codigo=codigo,
+                descripcion=descripcion,
+                categoria_id=categoria_id,
+                unidad_medida=unidad_medida
+            )
+            db.session.add(producto)
+            flash(f'¡Producto "{codigo}" creado con éxito!', 'success')
+
+        file = request.files.get('imagen_archivo')
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            extension = os.path.splitext(filename)[1]
+            nuevo_nombre_archivo = f"prod_{codigo}{extension}"
+            
+            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            ruta_guardado = os.path.join(upload_folder, nuevo_nombre_archivo)
+            file.save(ruta_guardado)
+            producto.imagen = nuevo_nombre_archivo
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al procesar el producto: {str(e)}', 'danger')
+
+    return redirect(request.referrer or url_for('vendedor.nuevo_pedido'))
 
 @admin_bp.route('/admin/cargar_masiva', methods=['GET', 'POST'])
 @login_required
