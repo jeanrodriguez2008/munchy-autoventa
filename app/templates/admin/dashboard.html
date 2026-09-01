@@ -189,9 +189,18 @@
                                 </td>
                                 <td><span class="text-dark small fw-bold">{{ g.top_producto }}</span></td>
                                 <td class="text-center">
-                                    <a href="{{ url_for('admin.dashboard', vendedor_id=g.id) }}" class="btn btn-sm btn-outline-danger" title="Filtrar métricas de este vendedor">
-                                        <i class="fa-solid fa-eye"></i> Filtrar
-                                    </a>
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <a href="{{ url_for('admin.dashboard', vendedor_id=g.id) }}" class="btn btn-sm btn-outline-danger" title="Filtrar métricas de este vendedor">
+                                            <i class="fa-solid fa-eye"></i> Filtrar
+                                        </a>
+                                        {% if current_user.rol in ['admin', 'webmaster'] and g.id != current_user.id %}
+                                        <form method="POST" action="{{ url_for('admin.eliminar_usuario', usuario_id=g.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas eliminar a este vendedor?');">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar vendedor">
+                                                <i class="fa-solid fa-trash-can"></i> Eliminar
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}

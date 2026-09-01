@@ -70,6 +70,7 @@ class Pedido(db.Model):
     fecha_recepcion = db.Column(db.DateTime, nullable=True) # Hora de Venezuela al confirmar el vendedor
     estatus = db.Column(db.String(20), default='Pendiente') # 'Pendiente' o 'Entregado'
     recibido_conforme = db.Column(db.Boolean, default=False) # True cuando el vendedor presiona el botón
+    request_id = db.Column(db.String(36), unique=True, nullable=True) # Identificador único para evitar peticiones duplicadas por red
     
     # Vendedor que monta el pedido
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)

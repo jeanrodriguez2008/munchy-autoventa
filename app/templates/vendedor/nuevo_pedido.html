@@ -54,7 +54,7 @@
                 
                 {% if current_user.rol in ['admin', 'webmaster', 'analista'] %}
                 <form id="form-eliminar-cat-{{ cat.id }}" method="POST" action="{{ url_for('vendedor.eliminar_categoria', categoria_id=cat.id) }}" class="position-absolute top-0 end-0 m-2">
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2" title="Eliminar Categoría" onclick="confirmarEliminacionCategoria('{{ cat.id }}', '{{ cat.nombre }}')">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2" title="Eliminar Categoría" onclick="confirmarEliminacionCategoria('{{ cat.id }}', '{{ cat.nombre|escape }}')">
                         <i class="fa-solid fa-trash-can fa-lg"></i>
                     </button>
                 </form>
@@ -76,6 +76,20 @@
             <h5>No hay categorías disponibles. Realiza una carga masiva en Excel para alimentar el catálogo.</h5>
         </div>
     {% endif %}
+</div>
+{% endif %}
+
+<!-- BOTÓN PARA REGRESAR A CATEGORÍAS (CUANDO HAY UNA SELECCIONADA) -->
+{% if categoria_seleccionada %}
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center bg-light p-3 rounded shadow-sm">
+        <h5 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-filter text-danger me-2"></i>Categoría actual: <span class="text-danger">{{ categoria_seleccionada.nombre }}</span>
+        </h5>
+        <a href="{{ url_for('vendedor.nuevo_pedido') }}" class="btn btn-outline-danger shadow-sm">
+            <i class="fa-solid fa-arrow-left me-2"></i>Volver a Todas las Categorías
+        </a>
+    </div>
 </div>
 {% endif %}
 
@@ -104,17 +118,21 @@
                             <small class="text-muted font-monospace">{{ prod.unidad_medida }}</small>
                         </div>
                         <h6 class="card-title fw-bold text-dark mb-1">{{ prod.descripcion }}</h6>
-                        <small class="text-muted d-block mb-2">Stock Almacén: <strong>{{ prod.stock_almacen }}</strong></small>
                     </div>
 
                     <!-- Módulo de Selección de Cantidad y Carrito -->
                     <div class="mt-2">
                         <div class="input-group input-group-sm mb-2">
                             <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', -1)">-</button>
-                            <input type="number" id="cant-{{ prod.id }}" class="form-control text-center fw-bold" value="1" min="1" max="{{ prod.stock_almacen }}">
+                            <input type="number" id="cant-{{ prod.id }}" class="form-control text-center fw-bold" value="1" min="1">
                             <button class="btn btn-outline-secondary" type="button" onclick="ajustarCantidad('cant-{{ prod.id }}', 1)">+</button>
                         </div>
-                        <button class="btn btn-danger btn-sm w-100 shadow-sm" onclick="agregarAlCarrito({{ prod.id }}, '{{ prod.codigo }}', '{{ prod.descripcion|replace('\'', '') }}', {{ prod.stock_almacen }})">
+                        <button class="btn btn-danger btn-sm w-100 shadow-sm" 
+                                data-id="{{ prod.id }}" 
+                                data-codigo="{{ prod.codigo }}" 
+                                data-descripcion="{{ prod.descripcion|e }}" 
+                                data-stock="999999" 
+                                onclick="agregarAlCarritoDesdeBoton(this)">
                             <i class="fa-solid fa-cart-plus me-1"></i> Agregar al Carrito
                         </button>
                     </div>
@@ -342,6 +360,7 @@
         <div>
             <form id="form-pedido" method="POST" action="{{ url_for('vendedor.crear_pedido') }}">
                 <input type="hidden" name="items_json" id="items_json">
+                <input type="hidden" name="request_id" id="request_id">
                 <button type="submit" id="btn-enviar-pedido" class="btn btn-danger btn-lg w-100 shadow" disabled>
                     <i class="fa-solid fa-paper-plane me-2"></i>Procesar Pedido al Almacén
                 </button>
@@ -418,46 +437,59 @@
     }
 
     function confirmarEliminacionCategoria(catId, catNombre) {
-        Swal.fire({
-            title: '¿Eliminar categoría?',
-            text: `Vas a eliminar "${catNombre}" y todos sus productos vinculados.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-            customClass: { popup: 'rounded-4 shadow' }
-        }).then((result) => {
-            if (result.isConfirmed) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar categoría?',
+                text: `Vas a eliminar "${catNombre}" y todos sus productos vinculados.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById(`form-eliminar-cat-${catId}`).submit();
+                }
+            });
+        } else {
+            if (confirm(`¿Vas a eliminar "${catNombre}" y todos sus productos vinculados?`)) {
                 document.getElementById(`form-eliminar-cat-${catId}`).submit();
             }
-        });
+        }
     }
 
     function confirmarEliminacionPedido(pedidoId) {
-        Swal.fire({
-            title: '¿Eliminar este pedido?',
-            text: `Esta acción eliminará el Pedido #${pedidoId} de forma permanente.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-            customClass: { popup: 'rounded-4 shadow' }
-        }).then((result) => {
-            if (result.isConfirmed) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar este pedido?',
+                text: `Esta acción eliminará el Pedido #${pedidoId} de forma permanente.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById(`form-eliminar-pedido-${pedidoId}`).submit();
+                }
+            });
+        } else {
+            if (confirm(`¿Esta acción eliminará el Pedido #${pedidoId} de forma permanente?`)) {
                 document.getElementById(`form-eliminar-pedido-${pedidoId}`).submit();
             }
-        });
+        }
     }
 
     function ajustarCantidad(inputId, delta) {
         let input = document.getElementById(inputId);
-        let val = parseInt(input.value) + delta;
+        let val = parseInt(input.value) || 1;
+        val += delta;
         if (val >= 1) {
             input.value = val;
         }
@@ -468,44 +500,36 @@
         if (input) input.focus();
     }
 
+    function agregarAlCarritoDesdeBoton(btn) {
+        let id = parseInt(btn.dataset.id);
+        let codigo = btn.dataset.codigo;
+        let descripcion = btn.dataset.descripcion;
+        let stockAlmacen = parseInt(btn.dataset.stock) || 999999;
+
+        agregarAlCarrito(id, codigo, descripcion, stockAlmacen);
+    }
+
     function agregarAlCarrito(id, codigo, descripcion, stockAlmacen) {
-        if (stockAlmacen <= 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Stock No Disponible',
-                text: `El producto "${descripcion}" no tiene unidades disponibles en el almacén principal.`,
-                confirmButtonColor: '#d33',
-                customClass: { popup: 'rounded-4 shadow' }
-            });
-            return;
-        }
-
         let cantidadInput = document.getElementById(`cant-${id}`);
-        let cantidad = parseInt(cantidadInput.value);
+        let cantidad = parseInt(cantidadInput ? cantidadInput.value : 1);
 
-        if (cantidad > stockAlmacen) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Excede Stock Disponible',
-                text: `Solo hay ${stockAlmacen} unidades disponibles de "${descripcion}".`,
-                confirmButtonColor: '#d33',
-                customClass: { popup: 'rounded-4 shadow' }
-            });
+        if (isNaN(cantidad) || cantidad <= 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cantidad Inválida',
+                    text: 'Por favor, ingresa una cantidad mayor a 0.',
+                    confirmButtonColor: '#d33',
+                    customClass: { popup: 'rounded-4 shadow' }
+                });
+            } else {
+                alert('Por favor, ingresa una cantidad mayor a 0.');
+            }
             return;
         }
 
         let existe = carrito.find(item => item.id === id);
         if (existe) {
-            if ((existe.cantidad + cantidad) > stockAlmacen) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Límite de Stock Alcanzado',
-                    text: `Ya tienes ${existe.cantidad} unidades en el carrito. No puedes superar el stock de ${stockAlmacen}.`,
-                    confirmButtonColor: '#d33',
-                    customClass: { popup: 'rounded-4 shadow' }
-                });
-                return;
-            }
             existe.cantidad += cantidad;
         } else {
             carrito.push({ id: id, codigo: codigo, descripcion: descripcion, cantidad: cantidad });
@@ -514,14 +538,16 @@
         sessionStorage.setItem('munchy_carrito', JSON.stringify(carrito));
         renderCarrito();
         
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Producto añadido al carrito',
-            showConfirmButton: false,
-            timer: 1200
-        });
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Producto añadido al carrito',
+                showConfirmButton: false,
+                timer: 1200
+            });
+        }
     }
 
     function eliminarDelCarrito(id) {
@@ -570,7 +596,19 @@
     }
 
     if (document.getElementById('form-pedido')) {
-        document.getElementById('form-pedido').addEventListener('submit', function() {
+        document.getElementById('form-pedido').addEventListener('submit', function(e) {
+            let btnEnviar = document.getElementById('btn-enviar-pedido');
+            let inputRequestId = document.getElementById('request_id');
+
+            if (inputRequestId && !inputRequestId.value) {
+                inputRequestId.value = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+            }
+
+            if (btnEnviar) {
+                btnEnviar.disabled = true;
+                btnEnviar.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Procesando pedido...';
+            }
+
             sessionStorage.removeItem('munchy_carrito');
         });
     }

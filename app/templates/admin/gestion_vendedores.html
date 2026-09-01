@@ -209,51 +209,61 @@
 {% block scripts %}
 <script>
     function toggleSelectVehiculo() {
-        let rol = document.getElementById('select_rol').value;
+        let selectRol = document.getElementById('select_rol');
         let divVehiculo = document.getElementById('div_vehiculo');
-        if (rol === 'vendedor') {
-            divVehiculo.style.display = 'block';
-        } else {
-            divVehiculo.style.display = 'none';
+        if (selectRol && divVehiculo) {
+            divVehiculo.style.display = (selectRol.value === 'vendedor') ? 'block' : 'none';
         }
     }
 
     function confirmarEliminacionVehiculo(vehiculoId, codigoVehiculo) {
-        Swal.fire({
-            title: '¿Eliminar Almacén Móvil?',
-            text: `Vas a borrar el vehículo "${codigoVehiculo}". Los vendedores vinculados quedarán sin asignación.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-            customClass: { popup: 'rounded-4 shadow' }
-        }).then((result) => {
-            if (result.isConfirmed) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar Almacén Móvil?',
+                text: `Vas a borrar el vehículo "${codigoVehiculo}". Los vendedores vinculados quedarán sin asignación.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById(`form-eliminar-vehiculo-${vehiculoId}`).submit();
+                }
+            });
+        } else {
+            if (confirm(`¿Vas a borrar el vehículo "${codigoVehiculo}"?`)) {
                 document.getElementById(`form-eliminar-vehiculo-${vehiculoId}`).submit();
             }
-        });
+        }
     }
 
     function confirmarEliminacionUsuario(usuarioId, nombreUsuario) {
-        Swal.fire({
-            title: '¿Eliminar usuario?',
-            text: `Vas a eliminar la cuenta de "${nombreUsuario}".`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-            customClass: { popup: 'rounded-4 shadow' }
-        }).then((result) => {
-            if (result.isConfirmed) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar usuario?',
+                text: `Vas a eliminar la cuenta de "${nombreUsuario}".`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById(`form-eliminar-usr-${usuarioId}`).submit();
+                }
+            });
+        } else {
+            if (confirm(`¿Vas a eliminar la cuenta de "${nombreUsuario}"?`)) {
                 document.getElementById(`form-eliminar-usr-${usuarioId}`).submit();
             }
-        });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', toggleSelectVehiculo);

@@ -56,12 +56,28 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
+                    <!-- Opciones para VENDEDOR -->
                     {% if current_user.rol == 'vendedor' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('vendedor.nuevo_pedido') }}"><i class="fa-solid fa-cart-plus me-1"></i> Realizar Nuevo Pedido</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.dashboard') }}"><i class="fa-solid fa-chart-line me-1"></i> Dashboard</a>
+                        </li>
                     {% endif %}
-                    {% if current_user.rol in ['almacenista', 'admin', 'webmaster', 'analista'] %}
+
+                    <!-- Opciones para ALMACENISTA -->
+                    {% if current_user.rol == 'almacenista' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('almacen.panel') }}"><i class="fa-solid fa-clipboard-list me-1"></i> Panel de Pedidos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.dashboard') }}"><i class="fa-solid fa-chart-line me-1"></i> Dashboard</a>
+                        </li>
+                    {% endif %}
+
+                    <!-- Opciones compartidas para ADMIN, WEBMASTER y ANALISTA -->
+                    {% if current_user.rol in ['admin', 'webmaster', 'analista'] %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('vendedor.nuevo_pedido') }}"><i class="fa-solid fa-boxes-stacked me-1"></i> Catálogo / Productos</a>
                         </li>
@@ -71,6 +87,10 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('admin.dashboard') }}"><i class="fa-solid fa-chart-line me-1"></i> Dashboard</a>
                         </li>
+                    {% endif %}
+
+                    <!-- Opciones excluidas para ADMIN (Solo WEBMASTER y ANALISTA) -->
+                    {% if current_user.rol in ['webmaster', 'analista'] %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('admin.cargar_masiva') }}"><i class="fa-solid fa-file-excel me-1"></i> Carga Masiva</a>
                         </li>
@@ -106,7 +126,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <!-- Registro PWA para permitir la instalación en Teléfonos y Escritorio -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

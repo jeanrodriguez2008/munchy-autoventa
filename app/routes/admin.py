@@ -15,11 +15,14 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/admin/dashboard')
 @login_required
 def dashboard():
-    if current_user.rol not in ['almacenista', 'admin', 'webmaster']:
-        flash('Acceso restringido a administradores.', 'danger')
-        return redirect(url_for('vendedor.dashboard'))
+    if current_user.rol not in ['vendedor', 'almacenista', 'admin', 'webmaster', 'analista']:
+        flash('Acceso restringido.', 'danger')
+        return redirect(url_for('auth.login'))
 
     vendedor_id_filtro = request.args.get('vendedor_id', type=int)
+    if current_user.rol == 'vendedor':
+        vendedor_id_filtro = current_user.id
+
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
 
     query_pedidos = Pedido.query
@@ -166,9 +169,9 @@ def dashboard():
 @admin_bp.route('/admin/cargar_masiva', methods=['GET', 'POST'])
 @login_required
 def cargar_masiva():
-    if current_user.rol not in ['almacenista', 'admin', 'webmaster']:
+    if current_user.rol not in ['admin', 'webmaster', 'analista']:
         flash('Acceso no autorizado.', 'danger')
-        return redirect(url_for('vendedor.dashboard'))
+        return redirect(url_for('admin.dashboard'))
 
     if request.method == 'POST':
         file = request.files.get('file_excel')
@@ -178,7 +181,7 @@ def cargar_masiva():
 
         try:
             df = pd.read_excel(file)
-            columnas_requeridas = ['CODIGO', 'DESCRIPCION', 'CATEGORIA', 'UNIDAD_MEDIDA', 'STOCK']
+            columnas_requeridas = ['CODIGO', 'DESCRIPCION', 'CATEGORIA', 'UNIDAD_MEDIDA']
 
             if not all(col in df.columns for col in columnas_requeridas):
                 flash(f'El archivo Excel debe contener las columnas: {", ".join(columnas_requeridas)}', 'danger')
@@ -190,7 +193,6 @@ def cargar_masiva():
                 descripcion = str(row['DESCRIPCION']).strip()
                 nombre_categoria = str(row['CATEGORIA']).strip()
                 unidad = str(row['UNIDAD_MEDIDA']).strip()
-                stock = int(row['STOCK']) if pd.notnull(row['STOCK']) else 0
 
                 categoria = Categoria.query.filter_by(nombre=nombre_categoria).first()
                 if not categoria:
@@ -203,14 +205,12 @@ def cargar_masiva():
                     producto.descripcion = descripcion
                     producto.categoria_id = categoria.id
                     producto.unidad_medida = unidad
-                    producto.stock_almacen = stock
                 else:
                     nuevo_producto = Producto(
                         codigo=codigo,
                         descripcion=descripcion,
                         categoria_id=categoria.id,
                         unidad_medida=unidad,
-                        stock_almacen=stock,
                         imagen=None
                     )
                     db.session.add(nuevo_producto)
@@ -231,12 +231,15 @@ def cargar_masiva():
 @admin_bp.route('/admin/descargar_plantilla')
 @login_required
 def descargar_plantilla():
+    if current_user.rol not in ['admin', 'webmaster', 'analista']:
+        flash('Acceso no autorizado.', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
     datos = {
         'CODIGO': ['G-001', 'S-001', 'B-001'],
         'DESCRIPCION': ['Galletas ChocoChips 120g', 'Papas Onduladas 45g', 'Jugo Naranja 250ml'],
         'CATEGORIA': ['Galletas', 'Snacks', 'Bebidas'],
-        'UNIDAD_MEDIDA': ['Unidades', 'Unidades', 'Unidades'],
-        'STOCK': [500, 300, 200]
+        'UNIDAD_MEDIDA': ['Unidades', 'Unidades', 'Unidades']
     }
     df = pd.DataFrame(datos)
     output = BytesIO()
@@ -254,9 +257,9 @@ def descargar_plantilla():
 @admin_bp.route('/admin/gestion_vendedores')
 @login_required
 def gestion_vendedores():
-    if current_user.rol not in ['almacenista', 'admin', 'webmaster']:
+    if current_user.rol not in ['admin', 'webmaster', 'analista']:
         flash('Acceso no autorizado.', 'danger')
-        return redirect(url_for('vendedor.dashboard'))
+        return redirect(url_for('admin.dashboard'))
 
     vehiculos = VehiculoMovil.query.all()
     usuarios = Usuario.query.all()
@@ -265,9 +268,9 @@ def gestion_vendedores():
 @admin_bp.route('/admin/crear_vehiculo', methods=['POST'])
 @login_required
 def crear_vehiculo():
-    if current_user.rol not in ['almacenista', 'admin', 'webmaster']:
+    if current_user.rol not in ['admin', 'webmaster', 'analista']:
         flash('Acceso no autorizado.', 'danger')
-        return redirect(url_for('vendedor.dashboard'))
+        return redirect(url_for('admin.dashboard'))
 
     codigo = request.form.get('codigo_vehiculo')
     descripcion = request.form.get('descripcion')
@@ -293,7 +296,6 @@ def eliminar_vehiculo(vehiculo_id):
     codigo = vehiculo.codigo_vehiculo
 
     try:
-        # Desvinculamos a los vendedores asociados antes de borrar
         vendedores_asociados = Usuario.query.filter_by(vehiculo_id=vehiculo.id).all()
         for v in vendedores_asociados:
             v.vehiculo_id = None
@@ -310,9 +312,9 @@ def eliminar_vehiculo(vehiculo_id):
 @admin_bp.route('/admin/crear_usuario', methods=['POST'])
 @login_required
 def crear_usuario():
-    if current_user.rol not in ['almacenista', 'admin', 'webmaster']:
+    if current_user.rol not in ['admin', 'webmaster']:
         flash('Acceso no autorizado.', 'danger')
-        return redirect(url_for('vendedor.dashboard'))
+        return redirect(url_for('admin.dashboard'))
 
     nombre_completo = request.form.get('nombre_completo')
     username = request.form.get('username')
@@ -348,7 +350,7 @@ def cambiar_rol_usuario(usuario_id):
     usuario = Usuario.query.get_or_404(usuario_id)
     nuevo_rol = request.form.get('nuevo_rol')
 
-    if nuevo_rol in ['vendedor', 'almacenista', 'admin', 'webmaster']:
+    if nuevo_rol in ['vendedor', 'almacenista', 'admin', 'webmaster', 'analista']:
         usuario.rol = nuevo_rol
         if nuevo_rol != 'vendedor':
             usuario.vehiculo_id = None
@@ -384,12 +386,12 @@ def toggle_estado_usuario(usuario_id):
 def eliminar_usuario(usuario_id):
     if current_user.rol not in ['admin', 'webmaster']:
         flash('Solo el Webmaster o Administrador puede eliminar usuarios.', 'danger')
-        return redirect(url_for('admin.gestion_vendedores'))
+        return redirect(request.referrer or url_for('admin.gestion_vendedores'))
 
     usuario = Usuario.query.get_or_404(usuario_id)
     if usuario.id == current_user.id:
         flash('No puedes eliminar tu propia cuenta.', 'warning')
-        return redirect(url_for('admin.gestion_vendedores'))
+        return redirect(request.referrer or url_for('admin.gestion_vendedores'))
 
     try:
         db.session.delete(usuario)
@@ -397,6 +399,6 @@ def eliminar_usuario(usuario_id):
         flash(f'El usuario {usuario.nombre_completo} ha sido eliminado definitivamente.', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'No se puede eliminar el usuario si posee pedidos asociados. Te sugerimos bloquearlo en su lugar.', 'warning')
+        flash('No se puede eliminar el usuario si posee pedidos asociados. Te sugerimos bloquearlo en su lugar.', 'warning')
 
-    return redirect(url_for('admin.gestion_vendedores'))
+    return redirect(request.referrer or url_for('admin.gestion_vendedores'))

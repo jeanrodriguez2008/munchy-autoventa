@@ -59,7 +59,6 @@ def toggle_estatus(pedido_id):
 
     try:
         if pedido.estatus == 'Pendiente':
-            # Pasar a ENTREGADO: Asignar hora de despacho en Venezuela y descontar de stock
             for detalle in pedido.detalles:
                 producto = Producto.query.get(detalle.producto_id)
                 if producto:
@@ -71,7 +70,6 @@ def toggle_estatus(pedido_id):
             flash(f'¡Pedido #{pedido.id} marcado como ENTREGADO!', 'success')
 
         else:
-            # Revertir a PENDIENTE (Desmarcar): Devolver al stock, limpiar fecha y conformidad
             for detalle in pedido.detalles:
                 producto = Producto.query.get(detalle.producto_id)
                 if producto:
@@ -144,7 +142,6 @@ def exportar_pdf(pedido_id):
 
     story = []
 
-    # Encabezado con Logo oficial desde app/static/img/logo.png
     logo_path = os.path.join(current_app.root_path, 'static', 'img', 'logo.png')
     textos_header = [
         Paragraph("<b>ALIMENTOS MUNCHY, C.A.</b>", title_style),
@@ -166,7 +163,6 @@ def exportar_pdf(pedido_id):
     story.append(tabla_encabezado)
     story.append(Spacer(1, 10))
 
-    # Información del Pedido y Horas de Venezuela
     almacen_movil_nombre = pedido.vendedor.vehiculo.codigo_vehiculo if pedido.vendedor and pedido.vendedor.vehiculo else 'N/A'
     fecha_pedido_fmt = pedido.fecha_creacion.strftime('%d/%m/%Y %I:%M %p')
     fecha_despacho_fmt = pedido.fecha_despacho.strftime('%d/%m/%Y %I:%M %p') if pedido.fecha_despacho else 'Pendiente por despachar'
@@ -183,7 +179,6 @@ def exportar_pdf(pedido_id):
     story.append(Paragraph(info_text, normal_style))
     story.append(Spacer(1, 15))
 
-    # Tabla con Columnas
     data_tabla = [[
         Paragraph("<b>Código</b>", header_table_style),
         Paragraph("<b>Descripción del Producto</b>", header_table_style),
@@ -217,7 +212,6 @@ def exportar_pdf(pedido_id):
     story.append(tabla_productos)
     story.append(Spacer(1, 40))
 
-    # Conformidad o Línea de Firma
     if pedido.recibido_conforme:
         firma_vendedor_text = f"<b>[ RECIBIDO CONFORME ]</b><br/>Confirmado digitalmente el {fecha_recepcion_fmt}<br/><b>Firma del Vendedor</b>"
     else:

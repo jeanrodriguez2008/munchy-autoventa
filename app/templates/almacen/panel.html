@@ -79,7 +79,7 @@
                                             {% endif %}
                                         </form>
 
-                                        {% if current_user.rol in ['admin', 'webmaster'] or p.usuario_id == current_user.id %}
+                                        {% if current_user.rol in ['admin', 'webmaster', 'analista', 'almacenista'] or p.usuario_id == current_user.id %}
                                         <form id="form-eliminar-panel-{{ p.id }}" method="POST" action="{{ url_for('vendedor.eliminar_pedido', pedido_id=p.id) }}">
                                             <button type="button" class="btn btn-sm btn-danger" title="Eliminar Pedido Definitivamente" onclick="confirmarEliminacionPedidoPanel('{{ p.id }}')">
                                                 <i class="fa-solid fa-trash-can"></i>
@@ -203,22 +203,28 @@
 {% block scripts %}
 <script>
     function confirmarEliminacionPedidoPanel(pedidoId) {
-        Swal.fire({
-            title: '¿Eliminar este pedido?',
-            text: `Vas a eliminar permanentemente el Pedido #${pedidoId}.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-            customClass: { popup: 'rounded-4 shadow' }
-        }).then((result) => {
-            if (result.isConfirmed) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar este pedido?',
+                text: `Vas a eliminar permanentemente el Pedido #${pedidoId}.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash-can me-1"></i> Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById(`form-eliminar-panel-${pedidoId}`).submit();
+                }
+            });
+        } else {
+            if (confirm(`¿Vas a eliminar permanentemente el Pedido #${pedidoId}?`)) {
                 document.getElementById(`form-eliminar-panel-${pedidoId}`).submit();
             }
-        });
+        }
     }
 </script>
 {% endblock %}

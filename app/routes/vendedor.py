@@ -11,12 +11,19 @@ vendedor_bp = Blueprint('vendedor', __name__)
 @vendedor_bp.route('/vendedor/dashboard')
 @login_required
 def dashboard():
+    if current_user.rol not in ['vendedor', 'webmaster', 'admin', 'analista']:
+        flash('Acceso no autorizado.', 'danger')
+        return redirect(url_for('almacen.panel'))
     return redirect(url_for('vendedor.nuevo_pedido'))
 
 @vendedor_bp.route('/vendedor/nuevo_pedido')
 @vendedor_bp.route('/vendedor/nuevo_pedido/<int:categoria_id>')
 @login_required
 def nuevo_pedido(categoria_id=None):
+    if current_user.rol not in ['vendedor', 'webmaster', 'admin', 'analista']:
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('almacen.panel'))
+
     categorias = Categoria.query.all()
     categoria_seleccionada = None
     productos = []
@@ -27,7 +34,6 @@ def nuevo_pedido(categoria_id=None):
     else:
         productos = Producto.query.all()
 
-    # Pedidos del vendedor actual para consultar estatus y recepciones
     mis_pedidos = Pedido.query.filter_by(usuario_id=current_user.id).order_by(Pedido.fecha_creacion.desc()).all()
 
     return render_template(
@@ -59,13 +65,11 @@ def confirmar_recepcion(pedido_id):
 def eliminar_pedido(pedido_id):
     pedido = Pedido.query.get_or_404(pedido_id)
 
-    # RESTRICCIÓN DE SEGURIDAD: Solo Webmaster, Analista y Almacenista pueden eliminar pedidos
     if current_user.rol not in ['webmaster', 'admin', 'analista', 'almacenista']:
         flash('Acceso denegado: Solo Webmaster, Analista y Almacenista pueden eliminar pedidos.', 'danger')
         return redirect(request.referrer or url_for('vendedor.nuevo_pedido'))
 
     try:
-        # Si el pedido estaba entregado, devolvemos el stock al almacén antes de borrar
         if pedido.estatus == 'Entregado':
             for detalle in pedido.detalles:
                 if detalle.producto:
@@ -142,36 +146,49 @@ def crear_pedido():
         flash('Acceso denegado.', 'danger')
         return redirect(url_for('auth.login'))
 
+    request_id = request.form.get('request_id')
+    
+    if request_id:
+        pedido_existente = Pedido.query.filter_by(request_id=request_id).first()
+        if pedido_existente:
+            flash(f'El pedido ya fue registrado anteriormente (Pedido #{pedido_existente.id}).', 'warning')
+            return redirect(url_for('vendedor.nuevo_pedido'))
+
     items_json = request.form.get('items_json')
     if not items_json:
-        flash('El pedido no contiene productos.', 'warning')
+        flash('El carrito está vacío.', 'warning')
         return redirect(url_for('vendedor.nuevo_pedido'))
 
     try:
         items = json.loads(items_json)
         if not items:
-            flash('El pedido está vacío.', 'warning')
+            flash('El carrito está vacío.', 'warning')
             return redirect(url_for('vendedor.nuevo_pedido'))
 
-        nuevo_pedido = Pedido(
+        nuevo_p = Pedido(
             usuario_id=current_user.id,
-            estatus='Pendiente'
+            estatus='Pendiente',
+            fecha_creacion=get_caracas_now(),
+            request_id=request_id
         )
-        db.session.add(nuevo_pedido)
+        db.session.add(nuevo_p)
         db.session.flush()
 
         for item in items:
-            cant = int(item['cantidad'])
+            prod_id = item.get('id')
+            cant = int(item.get('cantidad', 1))
+            
             detalle = DetallePedido(
-                pedido_id=nuevo_pedido.id,
-                producto_id=int(item['id']),
+                pedido_id=nuevo_p.id,
+                producto_id=prod_id,
                 cantidad=cant,
-                cantidad_despachada=cant
+                cantidad_despachada=None
             )
             db.session.add(detalle)
 
         db.session.commit()
-        flash(f'¡Pedido #{nuevo_pedido.id} montado exitosamente! El almacén ya puede visualizarlo.', 'success')
+        flash(f'¡Pedido #{nuevo_p.id} enviado exitosamente al almacén!', 'success')
+
     except Exception as e:
         db.session.rollback()
         flash(f'Error al procesar el pedido: {str(e)}', 'danger')
