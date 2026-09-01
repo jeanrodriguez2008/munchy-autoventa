@@ -89,7 +89,7 @@
                         </li>
                     {% endif %}
 
-                    <!-- Opciones excluidas para ADMIN (Solo WEBMASTER y ANALISTA) -->
+                    <!-- Módulos de administración avanzada (WEBMASTER y ANALISTA) -->
                     {% if current_user.rol in ['webmaster', 'analista'] %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('admin.cargar_masiva') }}"><i class="fa-solid fa-file-excel me-1"></i> Carga Masiva</a>
