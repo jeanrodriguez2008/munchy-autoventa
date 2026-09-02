@@ -7,7 +7,8 @@ from app import db, login_manager
 tz_caracas = pytz.timezone('America/Caracas')
 
 def get_caracas_now():
-    return datetime.now(tz_caracas)
+    """Retorna la fecha y hora actual de Venezuela limpia para guardar en la BD."""
+    return datetime.now(tz_caracas).replace(tzinfo=None)
 
 @login_manager.user_loader
 def load_user(user_id):
